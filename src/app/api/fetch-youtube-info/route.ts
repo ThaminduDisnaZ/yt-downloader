@@ -19,6 +19,7 @@ interface RawApiMediaItem {
   videoAvailable?: boolean; // Clues for video content
   audioAvailable?: boolean; // Clues for audio content
   isHD?: boolean;
+  itag?: string; // Sometimes used as an ID for the format
   // Add other potential fields based on observed API responses
 }
 
@@ -29,16 +30,19 @@ interface RawApiResponseData {
   author?: string; // Or channelName
   duration?: string | number; // Duration in seconds or formatted string
   medias?: RawApiMediaItem[]; // Array of available media formats
+  id?: string; // Video ID
+  uploader?: string; // Uploader name
+  viewCount?: string | number; // View count
   // Other fields based on observed API responses
 }
 
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const videoUrl = body.url; // The new API expects 'url' in the JSON body
+  const videoUrlFromBody = body.videoUrl; // Changed from body.url to body.videoUrl
 
-  if (!videoUrl) {
-    return NextResponse.json({ error: 'url is required in the request body' }, { status: 400 });
+  if (!videoUrlFromBody) {
+    return NextResponse.json({ error: 'videoUrl is required in the request body' }, { status: 400 });
   }
 
   const rapidApiKey = process.env.RAPIDAPI_KEY;
@@ -54,7 +58,7 @@ export async function POST(request: NextRequest) {
       'x-rapidapi-host': 'auto-download-all-in-one-big.p.rapidapi.com', // New API host
       'Content-Type': 'application/json', // New Content-Type
     },
-    body: JSON.stringify({ url: videoUrl }), // New request body format
+    body: JSON.stringify({ url: videoUrlFromBody }), // New request body format, API expects 'url'
   };
 
   try {
@@ -90,7 +94,7 @@ export async function POST(request: NextRequest) {
             const firstItem = rawVideoInfoSource[0];
             if (firstItem && firstItem.medias) {
                  const videoInfo: VideoInfo = {
-                    id: getString(firstItem.id || videoUrl, videoUrl), // Use videoUrl or an API provided ID
+                    id: getString(firstItem.id || videoUrlFromBody, videoUrlFromBody), // Use videoUrl or an API provided ID
                     title: getString(firstItem.title, 'Untitled Video'),
                     duration: typeof firstItem.duration === 'number' ? new Date(firstItem.duration * 1000).toISOString().substr(11, 8) : getString(firstItem.duration, 'N/A'),
                     thumbnailUrls: firstItem.thumbnail ? [getString(firstItem.thumbnail)] : [],
@@ -105,7 +109,7 @@ export async function POST(request: NextRequest) {
                             id: getString(media.itag || `${media.type}_${index}`, `${media.type || 'media'}_${index}`),
                             container: getString(media.extension || media.format?.split(' ')[0].toLowerCase() || 'unknown'),
                             qualityLabel: getString(media.quality, media.format || 'Default Quality'),
-                            fileExtension: getString(media.extension, 'unknown'),
+                            fileExtension: getString(media.extension, media.url?.split('.').pop()?.split('?')[0] || 'unknown'),
                             size: typeof media.size === 'number' ? `${(media.size / (1024*1024)).toFixed(2)}MB` : getString(media.size, 'N/A'),
                             downloadUrl: getString(media.url),
                         };
@@ -130,7 +134,7 @@ export async function POST(request: NextRequest) {
                              videoInfo.formats.push({
                                 ...commonFormat,
                                 type: 'audio',
-                                bitrate: parseInt(getString(media.quality, '128').replace('kbps','')), // simplistic bitrate detection
+                                bitrate: parseInt(getString(media.quality, '128').replace(/\D/g,'')), // simplistic bitrate detection
                             } as AudioFormat);
                         }
                     });
@@ -140,18 +144,18 @@ export async function POST(request: NextRequest) {
             }
         }
       console.error('Unexpected API response structure or no media found:', responseData);
-      return NextResponse.json({ error: 'Failed to parse video information from API response. The API might not support this URL or the response structure changed.' }, { status: 500 });
+      return NextResponse.json({ error: 'Failed to parse video information from API response. The URL might not be supported or the response structure changed.' }, { status: 500 });
     }
     
     const rawVideoInfo: RawApiResponseData = rawVideoInfoSource;
 
     const videoInfo: VideoInfo = {
-      id: getString(videoUrl), // Use videoUrl as ID, or an API provided ID if available
+      id: getString(rawVideoInfo.id || videoUrlFromBody, videoUrlFromBody), // Use videoUrl as ID, or an API provided ID if available
       title: getString(rawVideoInfo.title, 'Untitled Video'),
       duration: typeof rawVideoInfo.duration === 'number' ? new Date(rawVideoInfo.duration * 1000).toISOString().substr(11, 8) : getString(rawVideoInfo.duration, 'N/A'),
       thumbnailUrls: rawVideoInfo.thumbnail ? [getString(rawVideoInfo.thumbnail)] : [], // Assuming single thumbnail
       description: getString(rawVideoInfo.description),
-      author: getString(rawVideoInfo.author), // Or other field like 'uploader', 'channelName'
+      author: getString(rawVideoInfo.author || rawVideoInfo.uploader), // Or other field like 'uploader', 'channelName'
       viewCount: getString((rawVideoInfo as any).viewCount, 'N/A'), // If API provides view count
       formats: [],
     };
@@ -160,7 +164,7 @@ export async function POST(request: NextRequest) {
       rawVideoInfo.medias.forEach((media: RawApiMediaItem, index: number) => {
         const commonFormat = {
           // Generate an ID if not available, or use a field like 'itag' if present
-          id: getString((media as any).itag || `${media.type}_${index}`, `${media.type || 'media'}_${index}`),
+          id: getString(media.itag || `${media.type}_${index}`, `${media.type || 'media'}_${index}`),
           container: getString(media.extension || media.format?.split(' ')[0].toLowerCase() || 'unknown'),
           qualityLabel: getString(media.quality, media.format || 'Default Quality'),
           fileExtension: getString(media.extension, media.url?.split('.').pop()?.split('?')[0] || 'unknown'),
@@ -244,5 +248,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
   }
 }
-
-    
