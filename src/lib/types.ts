@@ -1,3 +1,4 @@
+
 export interface VideoFormat {
   id: string;
   container: 'mp4' | 'webm' | 'mkv';
@@ -19,6 +20,9 @@ export interface AudioFormat {
   size: string; // e.g., '10MB'
   type: 'audio';
   bitrate: number; // in kbps
+  // New fields for RapidAPI integration
+  rapidApiAudioId?: string;
+  rapidApiContinuationToken?: string;
 }
 
 export type MediaFormat = VideoFormat | AudioFormat;
