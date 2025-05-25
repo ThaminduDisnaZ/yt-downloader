@@ -88,10 +88,10 @@ export default function Home() {
   };
 
   const handleDownload = async () => {
-    if (selectedFormats.length === 0) {
+    if (selectedFormats.length === 0 || !videoInfo) {
       toast({
         title: "No Formats Selected",
-        description: "Please select at least one format to download.",
+        description: "Please select at least one format and ensure video info is loaded.",
         variant: "destructive",
       });
       return;
@@ -103,48 +103,43 @@ export default function Home() {
 
     toast({
       title: "Download Started",
-      description: `Downloading ${selectedFormats.length} format(s).`,
+      description: `Preparing ${selectedFormats.length} file(s) for download.`,
     });
 
-    const interval = setInterval(() => {
+    // Simulate progress for preparing downloads
+    const progressInterval = setInterval(() => {
       setDownloadProgress(prev => {
         if (prev >= 100) {
-          clearInterval(interval);
+          clearInterval(progressInterval);
           setIsDownloading(false);
-          toast({
-            title: "Download Complete!",
-            description: `Your file(s) are being "downloaded".`,
-            variant: "default",
-            className: "bg-accent text-accent-foreground border-accent",
-          });
-
-          // Trigger actual file download for each selected format
+          
+          // Trigger actual downloads via API
           selectedFormats.forEach(format => {
-            if (videoInfo) { 
-              const content = `This is a placeholder file for the video: "${videoInfo.title}"\nFormat: ${format.qualityLabel}\nFile Type: ${format.fileExtension}\nOriginal Size: ${format.size}\n\nThis is a mock download from TubeSiphon.`;
-              const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-              const url = URL.createObjectURL(blob);
+            if (videoInfo) {
+              const apiUrl = `/api/download?title=${encodeURIComponent(videoInfo.title)}&quality=${encodeURIComponent(format.qualityLabel)}&ext=${encodeURIComponent(format.fileExtension)}`;
+              
+              // Create a temporary link and click it to trigger download
               const a = document.createElement('a');
-              a.href = url;
-              
-              // Sanitize qualityLabel for use in filename
-              const safeQualityLabel = format.qualityLabel.replace(/[^a-zA-Z0-9_.-]/g, '_');
-              // Sanitize video title for use in filename (simple version)
-              const safeVideoTitle = videoInfo.title.substring(0,50).replace(/[^a-zA-Z0-9_.-]/g, '_');
-
-              a.download = `${safeVideoTitle}_${safeQualityLabel}.${format.fileExtension}.txt`; // Add .txt to indicate it's a text placeholder
-              
+              a.href = apiUrl;
+              // The filename will be set by the Content-Disposition header from the API
+              // a.download = ''; // Not strictly necessary as API handles it
               document.body.appendChild(a);
               a.click();
               document.body.removeChild(a);
-              URL.revokeObjectURL(url);
             }
+          });
+
+          toast({
+            title: "Downloads Initiated!",
+            description: `Your browser should now be downloading the file(s).`,
+            variant: "default",
+            className: "bg-accent text-accent-foreground border-accent",
           });
           return 100;
         }
         return prev + 10;
       });
-    }, 300);
+    }, 200); // Faster progress for "preparation"
   };
 
   return (
@@ -224,5 +219,3 @@ export default function Home() {
     </div>
   );
 }
-
-    
