@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -65,7 +66,6 @@ export default function Home() {
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 1500));
     
-    // Simulate success/error
     if (url.includes("fail")) {
       setError("Failed to fetch video information. The URL might be invalid or the video is private.");
       setVideoInfo(null);
@@ -75,7 +75,6 @@ export default function Home() {
         variant: "destructive",
       });
     } else {
-      // Add unique query param to thumbnails to ensure they are re-fetched if URL is the same.
       const timestamp = new Date().getTime();
       const uniqueThumbnails = MOCK_VIDEO_INFO.thumbnailUrls.map(thumbUrl => `${thumbUrl}&ts=${timestamp}`);
       
@@ -107,7 +106,6 @@ export default function Home() {
       description: `Downloading ${selectedFormats.length} format(s).`,
     });
 
-    // Simulate download progress
     const interval = setInterval(() => {
       setDownloadProgress(prev => {
         if (prev >= 100) {
@@ -115,9 +113,32 @@ export default function Home() {
           setIsDownloading(false);
           toast({
             title: "Download Complete!",
-            description: "Your file(s) have been 'downloaded'.",
+            description: `Your file(s) are being "downloaded".`,
             variant: "default",
             className: "bg-accent text-accent-foreground border-accent",
+          });
+
+          // Trigger actual file download for each selected format
+          selectedFormats.forEach(format => {
+            if (videoInfo) { 
+              const content = `This is a placeholder file for the video: "${videoInfo.title}"\nFormat: ${format.qualityLabel}\nFile Type: ${format.fileExtension}\nOriginal Size: ${format.size}\n\nThis is a mock download from TubeSiphon.`;
+              const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              
+              // Sanitize qualityLabel for use in filename
+              const safeQualityLabel = format.qualityLabel.replace(/[^a-zA-Z0-9_.-]/g, '_');
+              // Sanitize video title for use in filename (simple version)
+              const safeVideoTitle = videoInfo.title.substring(0,50).replace(/[^a-zA-Z0-9_.-]/g, '_');
+
+              a.download = `${safeVideoTitle}_${safeQualityLabel}.${format.fileExtension}.txt`; // Add .txt to indicate it's a text placeholder
+              
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              URL.revokeObjectURL(url);
+            }
           });
           return 100;
         }
@@ -203,3 +224,5 @@ export default function Home() {
     </div>
   );
 }
+
+    
