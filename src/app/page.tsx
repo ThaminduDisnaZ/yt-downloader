@@ -101,7 +101,9 @@ export default function Home() {
     let filesProcessed = 0;
 
     for (const format of selectedFormats) {
+      console.log("Processing format for download:", format); // Diagnostic log
       if (videoInfo && format.downloadUrl) {
+        console.log(`Attempting direct download for: ${format.qualityLabel} from ${format.downloadUrl}`); // Diagnostic log
         try {
           // Sanitize title for filename
           const safeVideoTitle = videoInfo.title.substring(0,50).replace(/[^a-zA-Z0-9_.-]/g, '_');
@@ -112,18 +114,20 @@ export default function Home() {
           const a = document.createElement('a');
           a.href = format.downloadUrl;
           a.download = filename; // Suggest a filename to the browser
+          a.target = '_blank'; // Try opening in a new tab context
+          a.rel = 'noopener noreferrer'; // Security measure for _blank
           document.body.appendChild(a);
           a.click();
           document.body.removeChild(a);
           
           toast({
             title: `Download Initiated: ${format.qualityLabel}`,
-            description: `Your browser is downloading: ${filename}`,
+            description: `Browser is attempting to download: ${filename}`,
             variant: "default"
           });
           
         } catch (downloadError: any) {
-           console.error(`Error downloading ${format.qualityLabel}:`, downloadError);
+           console.error(`Error initiating download for ${format.qualityLabel}:`, downloadError);
            toast({
             title: `Download Error: ${format.qualityLabel}`,
             description: downloadError.message || "Could not start download for this format.",
@@ -131,36 +135,52 @@ export default function Home() {
           });
         }
       } else if (videoInfo) {
-        // Fallback to mock download API if no downloadUrl is present (should ideally not happen with the new API)
-        console.warn(`No downloadUrl for format ${format.qualityLabel}, using mock download.`);
+        // Fallback to mock download API if no downloadUrl is present
+        console.warn(`No downloadUrl for format ${format.qualityLabel}, using mock download API. Check API response parsing.`); // Diagnostic log
         const apiUrl = `/api/download?title=${encodeURIComponent(videoInfo.title)}&quality=${encodeURIComponent(format.qualityLabel)}&ext=${encodeURIComponent(format.fileExtension)}`;
         const a = document.createElement('a');
         a.href = apiUrl;
+        // For mock download, filename is handled by the API, but we can still set target
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
          toast({
             title: `Mock Download: ${format.qualityLabel}`,
-            description: `Using fallback mock download.`,
-            variant: "default"
+            description: `Using fallback mock download. Real download URL was missing.`,
+            variant: "default" // Consider changing variant to 'outline' or similar to distinguish
           });
       }
       filesProcessed++;
       // Update progress based on files processed for simplicity
       setDownloadProgress(Math.round((filesProcessed / selectedFormats.length) * 100));
-      await new Promise(resolve => setTimeout(resolve, 500)); // Small delay between initiating downloads
+      // Small delay between initiating downloads to avoid browser blocking
+      if (selectedFormats.length > 1 && filesProcessed < selectedFormats.length) {
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Increased delay slightly
+      }
     }
     
     // Ensure progress reaches 100 after all attempts
     setDownloadProgress(100);
-    setIsDownloading(false);
-    toast({
-      title: "Download Process Finished",
-      description: `All selected downloads have been initiated. Check your browser's download manager.`,
-      variant: "default",
-      className: "bg-accent text-accent-foreground border-accent",
-      duration: 9000,
-    });
+    setIsDownloading(false); // Set this after the loop completes
+
+    // Final toast after all downloads are attempted
+    if (filesProcessed > 0) {
+        toast({
+        title: "Download Process Finished",
+        description: `All selected downloads have been initiated. Check your browser's download manager.`,
+        variant: "default",
+        className: "bg-accent text-accent-foreground border-accent",
+        duration: 9000,
+        });
+    } else if (selectedFormats.length > 0) {
+         toast({
+            title: "Download Process Issue",
+            description: "No files were initiated for download. Check console for errors or missing URLs.",
+            variant: "destructive",
+         });
+    }
   };
 
   return (
