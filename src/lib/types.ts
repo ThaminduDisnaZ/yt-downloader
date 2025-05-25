@@ -1,28 +1,27 @@
 
 export interface VideoFormat {
   id: string;
-  container: 'mp4' | 'webm' | 'mkv';
+  container: 'mp4' | 'webm' | 'mkv' | string; // Allow string for flexibility from API
   qualityLabel: string; 
   resolution?: string; 
-  fileExtension: 'mp4' | 'webm' | 'mkv';
+  fileExtension: 'mp4' | 'webm' | 'mkv' | string; // Allow string
   size: string; 
   type: 'video';
   bitrate?: number; // in kbps
   fps?: number;
   hasAudio: boolean;
+  downloadUrl?: string; // Direct download URL from API
 }
 
 export interface AudioFormat {
   id: string;
-  container: 'mp3' | 'm4a' | 'ogg' | 'opus' | 'wav';
+  container: 'mp3' | 'm4a' | 'ogg' | 'opus' | 'wav' | string; // Allow string
   qualityLabel: string; // e.g., 'Audio (128kbps)'
-  fileExtension: 'mp3' | 'm4a' | 'ogg' | 'opus' | 'wav';
+  fileExtension: 'mp3' | 'm4a' | 'ogg' | 'opus' | 'wav' | string; // Allow string
   size: string; // e.g., '10MB'
   type: 'audio';
   bitrate: number; // in kbps
-  // New fields for RapidAPI integration
-  rapidApiAudioId?: string;
-  rapidApiContinuationToken?: string;
+  downloadUrl?: string; // Direct download URL from API
 }
 
 export type MediaFormat = VideoFormat | AudioFormat;
@@ -35,7 +34,7 @@ export interface VideoInfo {
   formats: MediaFormat[];
   description: string;
   author: string;
-  viewCount: string;
+  viewCount: string; // This might not be available from all APIs
 }
 
 export interface SelectedFormat extends MediaFormat {
